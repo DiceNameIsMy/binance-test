@@ -1,69 +1,51 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 
 	"github.com/sacOO7/gowebsocket"
 )
 
+type Cup struct {
+	LastUpdateId int         `json:"lastUpdateId"`
+	Bids         [][2]string `json:"bids"`
+	Asks         [][2]string `json:"asks"`
+}
+
+func (c *Cup) cut_data() {
+	c.Bids = c.Bids[:15]
+	c.Asks = c.Asks[:15]
+}
+
 func main() {
-	// url := "https://api.binance.com/api/v3/depth?symbol=BNBBTC&limit=20"
-	wsUrl := "wss://stream.binance.com:9443/ws/btcusdt@depth20@1000ms"
+	currency_symbol := "bnbbtc"
+	params := "@depth20@1000ms"
 
-	data_filename := "test1.json"
-	first_item := true
+	wsUrl := "wss://stream.binance.com:9443/ws/" + currency_symbol + params
 
-	err := os.WriteFile(data_filename, []byte("["), 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-	file, err := os.OpenFile(data_filename, os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-
+	// channel to listen on code interruption
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
 	socket := gowebsocket.New(wsUrl)
-
-	socket.OnConnected = func(socket gowebsocket.Socket) {
-		log.Println("Connected to server")
-	}
-
-	socket.OnConnectError = func(err error, socket gowebsocket.Socket) {
-		log.Println("Recieved connect error ", err)
-	}
+	configure_default_socket(&socket)
 
 	socket.OnTextMessage = func(message string, socket gowebsocket.Socket) {
-		log.Println("Recieved string message")
-		extra_str := ""
-		if !first_item {
-			extra_str = ","
-		}
-		if _, err := file.WriteString(extra_str + message); err != nil {
+		// log.Println("Recieved string message")
+
+		var cup Cup
+		if err := json.Unmarshal([]byte(message), &cup); err != nil {
 			log.Fatal(err)
 		}
-		first_item = false
-	}
 
-	socket.OnBinaryMessage = func(data []byte, socket gowebsocket.Socket) {
-		log.Println("Recieved binary data ", data)
-	}
+		result := cup.parse_orders()
 
-	socket.OnPingReceived = func(data string, socket gowebsocket.Socket) {
-		log.Println("Recieved ping " + data)
-	}
-
-	socket.OnPongReceived = func(data string, socket gowebsocket.Socket) {
-		log.Println("Recieved pong " + data)
-	}
-
-	socket.OnDisconnected = func(err error, socket gowebsocket.Socket) {
-		log.Println("Disconnected from server ")
+		log.Println(result)
 	}
 
 	socket.Connect()
@@ -72,10 +54,66 @@ func main() {
 		select {
 		case <-interrupt:
 			log.Println("interrupt")
-			file.WriteString("]")
 			socket.Close()
 			return
 		}
 	}
 
+}
+
+func configure_default_socket(s *gowebsocket.Socket) {
+
+	s.OnConnected = func(socket gowebsocket.Socket) {
+		log.Println("Connected to server")
+	}
+
+	s.OnConnectError = func(err error, socket gowebsocket.Socket) {
+		log.Println("Recieved connect error ", err)
+	}
+
+	s.OnBinaryMessage = func(data []byte, socket gowebsocket.Socket) {
+		log.Println("Recieved binary data ", data)
+	}
+
+	s.OnPingReceived = func(data string, socket gowebsocket.Socket) {
+		log.Println("Recieved ping " + data)
+	}
+
+	s.OnPongReceived = func(data string, socket gowebsocket.Socket) {
+		log.Println("Recieved pong " + data)
+	}
+
+	s.OnDisconnected = func(err error, socket gowebsocket.Socket) {
+		log.Println("Disconnected from server ")
+	}
+}
+
+// Returns averaged total
+func (c Cup) parse_orders() [2]string {
+	c.cut_data()
+
+	float_total_bid := c.get_totals(c.Bids)
+	str_total_bid := fmt.Sprintf("%f", float_total_bid)
+
+	float_total_ask := c.get_totals(c.Asks)
+	str_total_ask := fmt.Sprintf("%f", float_total_ask)
+
+	return [2]string{str_total_bid, str_total_ask}
+}
+
+func (c Cup) get_totals(data [][2]string) float64 {
+	var total float64
+	for _, val := range data {
+		q, err := strconv.ParseFloat(val[0], 64)
+		if err != nil {
+			log.Fatal(err)
+		}
+		p, err := strconv.ParseFloat(val[1], 64)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		total += q * p
+	}
+	return total
 }
