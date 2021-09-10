@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"log"
 	"os"
 	"os/signal"
@@ -12,10 +13,11 @@ import (
 )
 
 func main() {
-	currency_symbol := "btcusdt"
-	params := "@depth20@1000ms"
+	currency_symbol := flag.String("symbol", "btcusdt", "currencies to track as: `btcusd`")
+	params := flag.String("params", "@depth20", "params written as: `@depth20@1000ms`")
+	url := "wss://stream.binance.com:9443/ws/"
 
-	wsUrl := "wss://stream.binance.com:9443/ws/" + currency_symbol + params
+	wsUrl := url + *currency_symbol + *params
 
 	// channel to listen on code interruption
 	// used to properly close connection on exit
