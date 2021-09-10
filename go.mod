@@ -1,4 +1,4 @@
-module main.go
+module github.com/DiceNameIsMy/binance-test
 
 go 1.17
 
