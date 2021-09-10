@@ -12,18 +12,18 @@ type Cup struct {
 	Asks         [][2]string `json:"asks"`
 }
 
-func (c *Cup) cut_data() {
+func (c *Cup) Cut_data() {
 	c.Bids = c.Bids[:15]
 	c.Asks = c.Asks[:15]
 }
 
-func (c *Cup) get_total_asks() string {
+func (c *Cup) Get_total_asks() string {
 	float_total := c.get_totals(c.Asks)
 	total_ask := fmt.Sprintf("%f", float_total)
 	return total_ask
 }
 
-func (c *Cup) get_total_bids() string {
+func (c *Cup) Get_total_bids() string {
 	float_total := c.get_totals(c.Bids)
 	total_ask := fmt.Sprintf("%f", float_total)
 	return total_ask
