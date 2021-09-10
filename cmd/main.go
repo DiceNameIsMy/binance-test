@@ -1,44 +1,30 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
-	"log"
 	"os"
 	"os/signal"
 
 	"github.com/DiceNameIsMy/binance-test/lib/binance"
-
-	"github.com/sacOO7/gowebsocket"
 )
 
 func main() {
-	currency_symbol := flag.String("symbol", "btcusdt", "currencies to track as: `btcusd`")
-	params := flag.String("params", "@depth20", "params written as: `@depth20@1000ms`")
-	url := "wss://stream.binance.com:9443/ws/"
-
-	wsUrl := url + *currency_symbol + *params
-
+	currency_symbol := flag.String(
+		"symbol",
+		"btcusdt",
+		"currencies to track as: `btcusd`",
+	)
+	params := flag.String(
+		"params",
+		"@1000ms",
+		"params written as: `@depth20@1000ms`",
+	)
 	// channel to listen on code interruption
 	// used to properly close connection on exit
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
-	socket := gowebsocket.New(wsUrl)
-	configure_default_socket(&socket)
-
-	socket.OnTextMessage = func(message string, socket gowebsocket.Socket) {
-		var mcup binance.Cup
-		if err := json.Unmarshal([]byte(message), &mcup); err != nil {
-			log.Fatal(err)
-		}
-		mcup.Cut_data()
-
-		total_bids := mcup.Get_total_bids()
-		total_asks := mcup.Get_total_asks()
-
-		log.Printf(" Bids: %s, Asks: %s", total_bids, total_asks)
-	}
+	socket := binance.GetCupsSocket(*currency_symbol, *params)
 
 	socket.Connect()
 
@@ -48,19 +34,4 @@ func main() {
 		return
 	}
 
-}
-
-func configure_default_socket(s *gowebsocket.Socket) {
-
-	s.OnConnected = func(socket gowebsocket.Socket) {
-		log.Println("Connected to server")
-	}
-
-	s.OnConnectError = func(err error, socket gowebsocket.Socket) {
-		log.Println("Recieved connect error ", err)
-	}
-
-	s.OnDisconnected = func(err error, socket gowebsocket.Socket) {
-		log.Println("Disconnected from server ")
-	}
 }
