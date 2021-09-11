@@ -12,7 +12,7 @@ func main() {
 	currency_symbol := flag.String(
 		"symbol",
 		"btcusdt",
-		"currencies to track as: `btcusd`",
+		"currencies to track as: `btcusdt`",
 	)
 	params := flag.String(
 		"params",
